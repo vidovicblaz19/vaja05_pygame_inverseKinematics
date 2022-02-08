@@ -1,4 +1,5 @@
 import math
+from turtle import update
 import pygame
 import manager
 import copy
@@ -19,42 +20,51 @@ class Armature:
     def distance(self,p1,p2):
         return math.sqrt(math.pow(p2[0]-p1[0],2) + math.pow(p2[1]-p1[1],2))
 
-    def err(self,_bones):
-        eff = self.updateBonesAndGetEffector(_bones)
-        return self.distance(eff,self.target)
+    def err(self):
+        return self.distance(self.get_armature_effector(),self.target)
 
-    def modifyAngles(self, relative_angles):
+    def get_armature_effector(self):
+        return self.bones[len(self.bones)-1].effector
+
+    def set_armature_angles(self, _relative_angles_array):
         for i in range(len(self.bones)):
-            self.bones[i].relative_angle = relative_angles[i]
+            self.bones[i].relative_angle = abs(_relative_angles_array[i] % 360)
+        self.update_armature()
 
-    def GradientOptimizationMethod(self):
+    def update_armature(self):
+        #===updates the positions of bones (joints, angles, and effectors)===
+        _total_angle = 0;
+        # set joint of child bone to effector of previous bone, and update the current bone position
+        for i in range(len(self.bones)):
+            if(i == 0):
+                self.bones[i].update(self.anchor,_total_angle)
+            else:
+                self.bones[i].update(self.bones[i-1].effector,_total_angle)
+            _total_angle = _total_angle + self.bones[i].relative_angle
+
+    def gradient_optimization_method(self):
         current_relative_angles = []
         for bone in self.bones:
             current_relative_angles.append(bone.relative_angle)
 
-        gradients = [None] * len(current_relative_angles)
-        
         iter = 0
-        while(self.err(self.bones) > manager.d and iter < manager.max_iter):
-            for i in range(len(self.bones)):
+        while(self.err() > manager.d and iter < manager.max_iter):
+            for i in range(len(current_relative_angles)):
                 bonesA_relative_angles = list(current_relative_angles)
                 bonesB_relative_angles = list(current_relative_angles)
 
-                bonesA_relative_angles[i] = bonesA_relative_angles[i] + manager.g
-                bonesB_relative_angles[i] = bonesA_relative_angles[i] - manager.g
+                bonesA_relative_angles[i] += manager.g
+                bonesB_relative_angles[i] -= manager.g
 
-                self.modifyAngles(bonesA_relative_angles)
-                errA = self.err(self.bones)
-                self.modifyAngles(bonesB_relative_angles)
-                errB = self.err(self.bones)
+                self.set_armature_angles(bonesA_relative_angles)
+                errA = self.err()
+                self.set_armature_angles(bonesB_relative_angles)
+                errB = self.err()
 
-                gradients[i] = errA - errB
-                current_relative_angles[i] = current_relative_angles[i] - gradients[i]
-
+                gradient = errA - errB
+                current_relative_angles[i] = current_relative_angles[i] - gradient
+            self.set_armature_angles(current_relative_angles)
             iter = iter + 1
-
-        self.modifyAngles(current_relative_angles)
-
 
     def angleBetweenPoints(self,p1,p2):
         return math.atan2(p2[1]-p1[1],p2[0]-p1[0]) * 180 / math.pi
@@ -62,24 +72,6 @@ class Armature:
     def update(self, target_location):
         #compute Gradient optimization
         self.target = target_location
-        #if(self.distance(self.target,self.anchor) > self.armature_length):
-        #    self.bones[0].relative_angle = self.angleBetweenPoints(self.anchor,self.target)
-        #    for i in range(1,len(self.bones)):
-        #        self.bones[i].relative_angle = 0
-        #else:
-        self.GradientOptimizationMethod()
-        self.updateBonesAndGetEffector(self.bones)
-
-    def updateBonesAndGetEffector(self, _bones):
-        #===updates the positions of bones (joints, angles, and effectors)===
-        _total_angle = 0;
-        # set joint of child bone to effector of previous bone, and update the current bone position
-        for i in range(len(_bones)):
-            if(i == 0):
-                _bones[i].update(self.anchor,_total_angle)
-            else:
-                _bones[i].update(_bones[i-1].effector,_total_angle)
-            
-            _total_angle = _total_angle + _bones[i].relative_angle
-        
-        return _bones[len(_bones)-1].effector
+       
+        self.gradient_optimization_method()
+        #self.update_armature()

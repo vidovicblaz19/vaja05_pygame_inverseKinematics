@@ -9,10 +9,10 @@ bone_length = 80
 bone_width = 10
 joint_radius = 8
 
-number_of_bones = 8
+number_of_bones = 4
 anchor = (height/2, width/2)
 
 #algorithm parameters
 d = 8
-g = 1
+g = 2
 max_iter = 200
